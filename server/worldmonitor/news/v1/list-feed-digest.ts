@@ -13,8 +13,26 @@ import { CHROME_UA } from '../../../_shared/constants';
 import { VARIANT_FEEDS, INTEL_SOURCES, type ServerFeed } from './_feeds';
 import { classifyByKeyword, type ThreatLevel } from './_classifier';
 import { getRelayBaseUrl, getRelayHeaders } from '../../../_shared/relay';
+import { fetchNewsCrawlArticles } from './_newscrawl';
 
 const RSS_ACCEPT = 'application/rss+xml, application/xml, text/xml, */*';
+
+/** Maps classifier threat categories to digest feed categories. */
+const CATEGORY_MAP: Record<string, string> = {
+  conflict: 'politics', protest: 'politics', diplomatic: 'politics',
+  terrorism: 'politics', military: 'politics', crime: 'politics',
+  economic: 'finance', tech: 'tech', cyber: 'tech',
+  disaster: 'crisis', environmental: 'crisis', health: 'crisis',
+  infrastructure: 'crisis',
+};
+const TECH_CATEGORY_MAP: Record<string, string> = {
+  tech: 'tech', cyber: 'tech', economic: 'tech',
+};
+function mapNewsCrawlCategory(threatCategory: string, variant: string): string {
+  if (variant === 'tech') return TECH_CATEGORY_MAP[threatCategory] ?? 'tech';
+  if (variant === 'finance') return threatCategory === 'economic' ? 'finance' : 'finance';
+  return CATEGORY_MAP[threatCategory] ?? 'politics';
+}
 
 const VALID_VARIANTS = new Set(['full', 'tech', 'finance', 'happy', 'commodity']);
 const fallbackDigestCache = new Map<string, { data: ListFeedDigestResponse; ts: number }>();
@@ -352,6 +370,18 @@ async function buildDigest(variant: string, lang: string): Promise<ListFeedDiges
         feedStatuses[entry.feed.name] = 'timeout';
       }
     }
+
+    // --- NewsCrawl enrichment: merge AI-curated articles into existing categories ---
+    try {
+      const ncArticles = await fetchNewsCrawlArticles(variant);
+      for (const article of ncArticles) {
+        // Map NewsCrawl's threat category to a digest category, fallback to 'politics'
+        const targetCategory = mapNewsCrawlCategory(article.category, variant);
+        const existing = results.get(targetCategory) ?? [];
+        existing.push(article);
+        results.set(targetCategory, existing);
+      }
+    } catch { /* NewsCrawl unavailable — continue with RSS-only digest */ }
 
     const slicedByCategory = new Map<string, ParsedItem[]>();
     for (const [category, items] of results) {

@@ -81,6 +81,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'national-debt': { name: 'Global Debt Clock', enabled: true, priority: 2 },
   'cross-source-signals': { name: 'Cross-Source Signals', enabled: true, priority: 2 },
   'market-implications': { name: 'AI Market Implications', enabled: true, priority: 1, premium: 'locked' as const },
+  newscrawl: { name: 'NewsCrawl AI', enabled: true, priority: 1 },
 };
 
 const FULL_MAP_LAYERS: MapLayers = {
@@ -249,6 +250,7 @@ const TECH_PANELS: Record<string, PanelConfig> = {
   'airline-intel': { name: 'Airline Intelligence', enabled: true, priority: 2 },
   'world-clock': { name: 'World Clock', enabled: true, priority: 2 },
   monitors: { name: 'My Monitors', enabled: true, priority: 2 },
+  newscrawl: { name: 'NewsCrawl AI', enabled: true, priority: 1 },
 };
 
 const TECH_MAP_LAYERS: MapLayers = {
@@ -422,6 +424,7 @@ const FINANCE_PANELS: Record<string, PanelConfig> = {
   'airline-intel': { name: 'Airline Intelligence', enabled: true, priority: 2 },
   'world-clock': { name: 'World Clock', enabled: true, priority: 2 },
   monitors: { name: 'My Monitors', enabled: true, priority: 2 },
+  newscrawl: { name: 'NewsCrawl AI', enabled: true, priority: 1 },
 };
 
 const FINANCE_MAP_LAYERS: MapLayers = {
@@ -560,6 +563,7 @@ const HAPPY_PANELS: Record<string, PanelConfig> = {
   species: { name: 'Conservation Wins', enabled: true, priority: 1 },
   renewable: { name: 'Renewable Energy', enabled: true, priority: 1 },
   giving: { name: 'Global Giving', enabled: true, priority: 1 },
+  newscrawl: { name: 'NewsCrawl AI', enabled: true, priority: 1 },
 };
 
 const HAPPY_MAP_LAYERS: MapLayers = {
@@ -715,6 +719,7 @@ const COMMODITY_PANELS: Record<string, PanelConfig> = {
   polymarket: { name: 'Commodity Predictions', enabled: true, priority: 2 },
   'world-clock': { name: 'World Clock', enabled: true, priority: 2 },
   monitors: { name: 'My Monitors', enabled: true, priority: 2 },
+  newscrawl: { name: 'NewsCrawl AI', enabled: true, priority: 1 },
 };
 
 const COMMODITY_MAP_LAYERS: MapLayers = {
@@ -970,7 +975,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   // All variants — essential panels
   core: {
     labelKey: 'header.panelCatCore',
-    panelKeys: ['map', 'live-news', 'live-webcams', 'windy-webcams', 'insights', 'strategic-posture'],
+    panelKeys: ['map', 'live-news', 'live-webcams', 'windy-webcams', 'insights', 'strategic-posture', 'newscrawl'],
   },
 
   // Full (geopolitical) variant

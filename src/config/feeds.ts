@@ -17,6 +17,9 @@ export const SOURCE_TIERS: Record<string, number> = {
   'AFP': 1,
   'Bloomberg': 1,
 
+  // Tier 1.5 - AI-Curated (NewsCrawl)
+  'NewsCrawl': 1,
+
   // Tier 2 - Major Outlets
   'BBC World': 2,
   'BBC Middle East': 2,

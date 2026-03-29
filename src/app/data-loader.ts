@@ -122,7 +122,6 @@ import { getHydratedData } from '@/services/bootstrap';
 import { ingestHeadlines } from '@/services/trending-keywords';
 import type { ListFeedDigestResponse } from '@/generated/client/worldmonitor/news/v1/service_client';
 import type { GetSectorSummaryResponse, ListMarketQuotesResponse, ListCommodityQuotesResponse } from '@/generated/client/worldmonitor/market/v1/service_client';
-import { mountCommunityWidget } from '@/components/CommunityWidget';
 import { ResearchServiceClient } from '@/generated/client/worldmonitor/research/v1/service_client';
 import {
   MarketPanel,
@@ -816,9 +815,10 @@ export class DataLoaderManager implements AppModule {
 
       // Digest branch: server already aggregated feeds — map proto items to client types
       if (digest?.categories && category in digest.categories) {
+        const allFeedNames = new Set((feeds ?? []).map(f => f.name));
         const items = (digest.categories[category]?.items ?? [])
           .map(protoItemToNewsItem)
-          .filter(i => enabledNames.has(i.source));
+          .filter(i => enabledNames.has(i.source) || !allFeedNames.has(i.source));
 
         ingestHeadlines(items.map(i => ({ title: i.title, pubDate: i.pubDate, source: i.source, link: i.link })));
 
@@ -1080,8 +1080,6 @@ export class DataLoaderManager implements AppModule {
 
     this.ctx.allNews = collectedNews;
     this.ctx.initialLoadComplete = true;
-    mountCommunityWidget();
-
     this.ctx.map?.updateHotspotActivity(this.ctx.allNews);
 
     this.updateMonitorResults();

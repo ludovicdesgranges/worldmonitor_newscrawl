@@ -572,6 +572,104 @@ function youtubeLivePlugin(): Plugin {
   };
 }
 
+function newscrawlDevPlugin(): Plugin {
+  const NC_BASE = 'https://api.prod.news-monitoring.newscore.fr';
+  return {
+    name: 'newscrawl-dev',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith('/api/newscrawl/')) return next();
+
+        const apiKey = process.env.NEWSCRAWL_API_KEY;
+        if (!apiKey) {
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'NEWSCRAWL_API_KEY not set', feeds: [], articles: [], count: 0 }));
+          return;
+        }
+
+        const url = new URL(req.url, 'http://localhost');
+
+        try {
+          let ncUrl: string;
+          if (req.url.startsWith('/api/newscrawl/feeds')) {
+            ncUrl = `${NC_BASE}/external-news-feed/`;
+          } else if (req.url.startsWith('/api/newscrawl/articles')) {
+            const feedId = url.searchParams.get('newsFeedId') || url.searchParams.get('feedId') || '';
+            const limit = url.searchParams.get('limit') || '30';
+            const offset = url.searchParams.get('offset') || '0';
+            const params = new URLSearchParams({ newsFeedId: feedId, limit, offset });
+            const search = url.searchParams.get('search');
+            if (search) params.set('search', search);
+            ncUrl = `${NC_BASE}/related-articles/?${params}`;
+          } else {
+            return next();
+          }
+
+          const ncResp = await fetch(ncUrl, {
+            headers: { 'Authorization': `Api-Key ${apiKey}`, 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            signal: AbortSignal.timeout(12_000),
+          });
+
+          const json = await ncResp.json() as Record<string, unknown>;
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Cache-Control', 'max-age=120');
+
+          if (req.url.startsWith('/api/newscrawl/feeds')) {
+            // Paginate through all feeds
+            let allResults = ((json?.data as Record<string, unknown>)?.results ?? []) as Array<Record<string, unknown>>;
+            let nextUrl = (json?.data as Record<string, unknown>)?.next as string | null;
+            while (nextUrl) {
+              try {
+                const nextResp = await fetch(nextUrl, {
+                  headers: { 'Authorization': `Api-Key ${apiKey}`, 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                  signal: AbortSignal.timeout(8_000),
+                });
+                const nextJson = await nextResp.json() as Record<string, unknown>;
+                const pageResults = ((nextJson?.data as Record<string, unknown>)?.results ?? []) as Array<Record<string, unknown>>;
+                allResults = allResults.concat(pageResults);
+                nextUrl = (nextJson?.data as Record<string, unknown>)?.next as string | null;
+              } catch { nextUrl = null; }
+            }
+            const feeds = allResults.map((f) => ({
+              id: f.id, title: f.title,
+              agentType: f.agentType ?? 'NEWS_AGENT',
+              isCompleted: f.isCompleted ?? false,
+              active: f.active ?? true,
+            }));
+            res.end(JSON.stringify({ feeds }));
+          } else {
+            const data = json?.data as Record<string, unknown> | undefined;
+            const results = (data?.results ?? []) as Array<Record<string, unknown>>;
+            const lang = (v: unknown) => { const o = v as Record<string, unknown> | null; return o ? { name: (o.name || '') as string, code: (o.code || '') as string } : { name: '', code: '' }; };
+            const articles = results.map((a) => {
+              const l = lang(a.language);
+              return {
+                id: a.id, title: (a.title || '') as string,
+                translatedTitle: (a.translatedTitle || '') as string,
+                originalTitle: (a.title || '') as string,
+                score: (a.score ?? 0) as number,
+                scoreReview: (a.scoreReview || '') as string,
+                url: (a.urlParsed || a.originalUrl || '') as string,
+                source: (a.websiteName || '') as string,
+                contentSource: (a.contentSource || 'News') as string,
+                publishedAt: (a.publicationDate || a.createdAt || '') as string,
+                language: l.name, languageCode: l.code,
+                summary: (a.summary || '') as string,
+                clusterSize: (a.numberOfArticlesInCluster ?? 1) as number,
+                labels: ((a.labels ?? []) as Array<Record<string, unknown>>).map((ll) => (ll.name ?? ll) as string).filter(Boolean),
+              };
+            });
+            res.end(JSON.stringify({ articles, count: data?.count ?? 0 }));
+          }
+        } catch (err: unknown) {
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: (err as Error)?.message ?? 'Unknown error', feeds: [], articles: [], count: 0 }));
+        }
+      });
+    },
+  };
+}
+
 function gpsjamDevPlugin(): Plugin {
   return {
     name: 'gpsjam-dev',
@@ -618,6 +716,7 @@ export default defineConfig(({ mode }) => {
       polymarketPlugin(),
       rssProxyPlugin(),
       youtubeLivePlugin(),
+      newscrawlDevPlugin(),
       gpsjamDevPlugin(),
       sebufApiPlugin(),
       brotliPrecompressPlugin(),

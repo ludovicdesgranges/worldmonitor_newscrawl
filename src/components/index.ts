@@ -72,3 +72,4 @@ export * from './ConsumerPricesPanel';
 export { NationalDebtPanel } from './NationalDebtPanel';
 export * from './FearGreedPanel';
 export { HormuzPanel } from './HormuzPanel';
+export { NewsCrawlPanel } from './NewsCrawlPanel';
