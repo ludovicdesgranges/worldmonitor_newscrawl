@@ -426,7 +426,7 @@ export class EventHandlerManager implements AppModule {
     };
     document.addEventListener('keydown', this.boundUndoHandler);
 
-    const isLocalDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    const isLocalDev = !location.hostname.endsWith('worldmonitor.app');
     this.ctx.container.querySelectorAll<HTMLAnchorElement>('.variant-option').forEach(link => {
       link.addEventListener('click', (e) => {
         const variant = link.dataset.variant;
@@ -535,7 +535,7 @@ export class EventHandlerManager implements AppModule {
     overlay.addEventListener('click', () => this.closeMobileMenu());
     closeBtn.addEventListener('click', () => this.closeMobileMenu());
 
-    const isLocalDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    const isLocalDev = !location.hostname.endsWith('worldmonitor.app');
     menu.querySelectorAll<HTMLButtonElement>('.mobile-menu-variant').forEach(btn => {
       btn.addEventListener('click', () => {
         const variant = btn.dataset.variant;
