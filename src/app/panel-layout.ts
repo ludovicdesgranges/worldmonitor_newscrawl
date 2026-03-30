@@ -868,6 +868,12 @@ export class PanelLayoutManager implements AppModule {
     });
     if (ncPanel) void ncPanel.init();
 
+    // Listen for NewsCrawl article locations and push them to the map
+    document.addEventListener('newscrawl-locations', ((e: CustomEvent) => {
+      const markers = e.detail as Array<{ lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date }>;
+      this.ctx.map?.setNewsLocations(markers);
+    }) as EventListener);
+
     if (this.ctx.isDesktopApp) {
       const runtimeConfigPanel = new RuntimeConfigPanel({ mode: 'alert' });
       this.ctx.panels['runtime-config'] = runtimeConfigPanel;

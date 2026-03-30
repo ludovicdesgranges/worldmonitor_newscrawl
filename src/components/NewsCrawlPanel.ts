@@ -14,6 +14,12 @@ interface NewsCrawlFeed {
   active: boolean;
 }
 
+interface NewsCrawlLocation {
+  location: string;
+  latitude: number;
+  longitude: number;
+}
+
 interface NewsCrawlArticle {
   id: string;
   title: string;
@@ -30,6 +36,7 @@ interface NewsCrawlArticle {
   summary: string;
   clusterSize: number;
   labels: string[];
+  locations?: NewsCrawlLocation[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -143,6 +150,7 @@ export class NewsCrawlPanel extends Panel {
       this.currentOffset = offset + json.articles.length;
       this.view = 'articles';
       this.renderView();
+      this.pushLocationsToMap();
     } catch {
       if (offset === 0) {
         this.showError(t('common.fetchError'), () => void this.loadArticles(feedId, offset));
@@ -285,6 +293,27 @@ export class NewsCrawlPanel extends Panel {
     this.currentOffset = 0;
     this.totalArticles = 0;
     void this.loadArticles(feedId);
+  }
+
+  /* ------ Map integration ------ */
+
+  private pushLocationsToMap(): void {
+    const markers: Array<{ lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date }> = [];
+    for (const article of this.articles) {
+      if (!article.locations || article.locations.length === 0) continue;
+      const ts = article.publishedAt ? new Date(article.publishedAt) : undefined;
+      const threat = article.score >= 80 ? 'high' : article.score >= 50 ? 'medium' : 'low';
+      for (const loc of article.locations) {
+        markers.push({
+          lat: loc.latitude,
+          lon: loc.longitude,
+          title: `${article.translatedTitle || article.title} — ${loc.location}`,
+          threatLevel: threat,
+          timestamp: ts,
+        });
+      }
+    }
+    document.dispatchEvent(new CustomEvent('newscrawl-locations', { detail: markers }));
   }
 
   /* ------ Helpers ------ */
