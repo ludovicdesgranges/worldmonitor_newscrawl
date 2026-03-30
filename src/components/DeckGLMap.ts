@@ -488,18 +488,6 @@ export class DeckGLMap {
       pan: { ...initialState.pan },
       layers: { ...initialState.layers },
     };
-    // Apply agent-specific layer overrides
-    const _agentCfg = _getAgentConfig();
-    if (_agentCfg?.defaultEnabledLayers) {
-      // Disable all layers first, then enable only agent-specified ones
-      const layersAny = this.state.layers as unknown as Record<string, boolean>;
-      for (const k of Object.keys(this.state.layers)) {
-        layersAny[k] = false;
-      }
-      for (const k of _agentCfg.defaultEnabledLayers) {
-        layersAny[k] = true;
-      }
-    }
     this.hotspots = [...INTEL_HOTSPOTS];
 
     this.debouncedRebuildLayers = debounce(() => {

@@ -37,6 +37,7 @@ import type { BigMacPanel } from '@/components/BigMacPanel';
 import type { FuelPricesPanel } from '@/components/FuelPricesPanel';
 import type { ConsumerPricesPanel } from '@/components/ConsumerPricesPanel';
 import { isDesktopRuntime, waitForSidecarReady } from '@/services/runtime';
+import { getAgentConfig } from '@/agent-selector';
 import { getSecretState } from '@/services/runtime-config';
 import { isProUser } from '@/services/widget-store';
 import { BETA_MODE } from '@/config/beta';
@@ -566,6 +567,17 @@ export class App {
     }
     if (!CYBER_LAYER_ENABLED) {
       mapLayers.cyberThreats = false;
+    }
+    // Apply agent-specific layer overrides
+    const _agentCfg = getAgentConfig();
+    if (_agentCfg?.defaultEnabledLayers) {
+      const layersAny = mapLayers as unknown as Record<string, boolean>;
+      for (const k of Object.keys(mapLayers)) {
+        layersAny[k] = false;
+      }
+      for (const k of _agentCfg.defaultEnabledLayers) {
+        layersAny[k] = true;
+      }
     }
     // One-time migration: reduce default-enabled sources (full variant only)
     if (currentVariant === 'full') {
