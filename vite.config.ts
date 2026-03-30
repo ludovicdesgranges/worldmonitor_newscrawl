@@ -600,7 +600,7 @@ function newscrawlDevPlugin(): Plugin {
             const params = new URLSearchParams({ newsFeedId: feedId, limit, offset });
             const search = url.searchParams.get('search');
             if (search) params.set('search', search);
-            ncUrl = `${NC_BASE}/related-articles/?${params}`;
+            ncUrl = `${NC_BASE}/related-articles-v2/?${params}`;
           } else {
             return next();
           }
@@ -657,6 +657,13 @@ function newscrawlDevPlugin(): Plugin {
                 summary: (a.summary || '') as string,
                 clusterSize: (a.numberOfArticlesInCluster ?? 1) as number,
                 labels: ((a.labels ?? []) as Array<Record<string, unknown>>).map((ll) => (ll.name ?? ll) as string).filter(Boolean),
+                locations: (((a.customProperties ?? []) as Array<Record<string, unknown>>).find((p) => p.category === 'LOCALIZATION') as Record<string, unknown> | undefined)?.result
+                  ? (((a.customProperties as Array<Record<string, unknown>>).find((p) => p.category === 'LOCALIZATION') as Record<string, unknown>).result as Array<Record<string, unknown>>).map((loc) => ({
+                      location: (loc.location || '') as string,
+                      latitude: parseFloat(loc.latitude as string) || null,
+                      longitude: parseFloat(loc.longitude as string) || null,
+                    })).filter((loc) => loc.latitude != null && loc.longitude != null)
+                  : [],
               };
             });
             res.end(JSON.stringify({ articles, count: data?.count ?? 0 }));

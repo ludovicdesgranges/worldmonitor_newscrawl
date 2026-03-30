@@ -103,7 +103,7 @@ async function fetchFeedArticles(
   feedId: string,
   variant: string,
 ): Promise<NewsCrawlParsedItem[] | null> {
-  const url = `${BASE_URL}/related-articles/?newsFeedId=${feedId}&limit=${MAX_ARTICLES}`;
+  const url = `${BASE_URL}/related-articles-v2/?newsFeedId=${feedId}&limit=${MAX_ARTICLES}`;
 
   const resp = await fetch(url, {
     headers: {

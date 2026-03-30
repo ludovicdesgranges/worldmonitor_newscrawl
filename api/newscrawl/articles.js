@@ -50,7 +50,7 @@ export default async function handler(request) {
   if (endDate) params.set('endDate', endDate);
 
   try {
-    const resp = await fetch(`${BASE_URL}/related-articles/?${params}`, {
+    const resp = await fetch(`${BASE_URL}/related-articles-v2/?${params}`, {
       headers: { 'Authorization': `Api-Key ${apiKey}`, 'Accept': 'application/json', 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
@@ -82,6 +82,11 @@ export default async function handler(request) {
       summary: a.summary || '',
       clusterSize: a.numberOfArticlesInCluster ?? 1,
       labels: (a.labels ?? []).map((l) => l.name ?? l).filter(Boolean),
+      locations: ((a.customProperties ?? []).find((p) => p.category === 'LOCALIZATION')?.result ?? []).map((loc) => ({
+        location: loc.location || '',
+        latitude: parseFloat(loc.latitude) || null,
+        longitude: parseFloat(loc.longitude) || null,
+      })).filter((loc) => loc.latitude != null && loc.longitude != null),
     }));
 
     return new Response(JSON.stringify({ articles, count }), {
