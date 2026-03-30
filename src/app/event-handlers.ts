@@ -439,6 +439,13 @@ export class EventHandlerManager implements AppModule {
       });
     });
 
+    document.getElementById('agentBackBtn')?.addEventListener('click', () => {
+      import('../agent-selector').then(({ clearSelectedAgent }) => {
+        clearSelectedAgent();
+        window.location.reload();
+      });
+    });
+
     const fullscreenBtn = document.getElementById('fullscreenBtn');
     if (!this.ctx.isDesktopApp && fullscreenBtn) {
       fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());

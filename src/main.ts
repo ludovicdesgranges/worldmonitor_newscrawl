@@ -395,6 +395,29 @@ if (urlParams.get('settings') === '1') {
     }
   );
 } else {
+  // Agent selector gate — only on non-worldmonitor.app domains
+  const needsAgentGate = !location.hostname.endsWith('worldmonitor.app');
+  if (needsAgentGate) {
+    import('./agent-selector').then(({ getSelectedAgent, renderAgentSelector }) => {
+      const selected = getSelectedAgent();
+      if (selected) {
+        bootDashboard();
+      } else {
+        const appEl = document.getElementById('app');
+        if (appEl) {
+          appEl.innerHTML = '';
+          renderAgentSelector(appEl, () => {
+            window.location.reload();
+          });
+        }
+      }
+    });
+  } else {
+    bootDashboard();
+  }
+}
+
+function bootDashboard(): void {
   installUtmInterceptor();
   const app = new App('app');
   app
