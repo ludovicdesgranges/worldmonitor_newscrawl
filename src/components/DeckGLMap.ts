@@ -3229,15 +3229,18 @@ export class DeckGLMap {
         id: 'news-locations-layer',
         data: filteredNewsLocations,
         getPosition: (d) => [d.lon, d.lat],
-        getRadius: 18000,
+        getRadius: 35000,
         getFillColor: (d) => {
           const rgb = THREAT_RGB[d.threatLevel] || [59, 130, 246];
-          const a = Math.round((THREAT_ALPHA[d.threatLevel] || 120) * alphaScale);
+          const a = Math.round(Math.min(255, (THREAT_ALPHA[d.threatLevel] || 120) * 1.8) * alphaScale);
           return [...rgb, a] as [number, number, number, number];
         },
-        radiusMinPixels: 3,
-        radiusMaxPixels: 12,
+        radiusMinPixels: 6,
+        radiusMaxPixels: 18,
         pickable: true,
+        stroked: true,
+        getLineColor: [255, 255, 255, 140],
+        lineWidthMinPixels: 1.5,
       }),
     ];
 
