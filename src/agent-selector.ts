@@ -13,7 +13,14 @@ export interface AgentDef {
   icon: string;
 }
 
-export const AGENTS: AgentDef[] = [
+export interface AgentConfig {
+  defaultNewsCrawlFeedId?: string;
+  defaultNewsCrawlFeedTitle?: string;
+  hideVariantSwitcher?: boolean;
+  mapTitle?: string;
+}
+
+export const AGENTS: (AgentDef & { config?: AgentConfig })[] = [
   {
     id: 'all',
     name: 'All',
@@ -25,8 +32,20 @@ export const AGENTS: AgentDef[] = [
     name: 'Marine Surveillance',
     description: 'Maritime monitoring: vessel tracking, naval operations, narcotics interdiction, and coastal security.',
     icon: '🚢',
+    config: {
+      defaultNewsCrawlFeedId: '64b8612e-4ec8-486e-b00d-74c2548a9a8a',
+      defaultNewsCrawlFeedTitle: 'Sopra test',
+      hideVariantSwitcher: true,
+      mapTitle: 'MARINE',
+    },
   },
 ];
+
+export function getAgentConfig(): AgentConfig | undefined {
+  const id = getSelectedAgent();
+  if (!id) return undefined;
+  return AGENTS.find(a => a.id === id)?.config;
+}
 
 export function getSelectedAgent(): string | null {
   try {

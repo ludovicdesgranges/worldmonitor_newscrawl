@@ -2,6 +2,7 @@ import type { AppContext, AppModule } from '@/app/app-context';
 import { replayPendingCalls, clearAllPendingCalls } from '@/app/pending-panel-data';
 import type { RelatedAsset } from '@/types';
 import type { TheaterPostureSummary } from '@/services/military-surge';
+import { getAgentConfig, type AgentConfig } from '@/agent-selector';
 import {
   MapContainer,
   NewsPanel,
@@ -101,10 +102,12 @@ export class PanelLayoutManager implements AppModule {
   private criticalBannerEl: HTMLElement | null = null;
   private aviationCommandBar: AviationCommandBar | null = null;
   private readonly applyTimeRangeFilterDebounced: (() => void) & { cancel(): void };
+  private readonly agentConfig: AgentConfig | undefined;
 
   constructor(ctx: AppContext, callbacks: PanelLayoutManagerCallbacks) {
     this.ctx = ctx;
     this.callbacks = callbacks;
+    this.agentConfig = getAgentConfig();
     this.applyTimeRangeFilterDebounced = debounce(() => {
       this.applyTimeRangeFilterToNewsPanels();
     }, 120);
@@ -150,7 +153,7 @@ export class PanelLayoutManager implements AppModule {
           <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menu">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
           </button>
-          <div class="variant-switcher">${(() => {
+          <div class="variant-switcher"${this.agentConfig?.hideVariantSwitcher ? ' style="display:none"' : ''}>${(() => {
         const local = this.ctx.isDesktopApp || !location.hostname.endsWith('worldmonitor.app');
         const inIframe = window.self !== window.top;
         const vHref = (v: string, prod: string) => local || SITE_VARIANT === v ? '#' : prod;
@@ -320,7 +323,7 @@ export class PanelLayoutManager implements AppModule {
         <div class="map-section" id="mapSection">
           <div class="panel-header">
             <div class="panel-header-left">
-              <span class="panel-title">${SITE_VARIANT === 'tech' ? t('panels.techMap') : SITE_VARIANT === 'happy' ? 'Good News Map' : t('panels.map')}</span>
+              <span class="panel-title">${this.agentConfig?.mapTitle ?? (SITE_VARIANT === 'tech' ? t('panels.techMap') : SITE_VARIANT === 'happy' ? 'Good News Map' : t('panels.map'))}</span>
             </div>
             <span class="header-clock" id="headerClock" translate="no"></span>
             <div class="map-header-actions">
@@ -856,7 +859,13 @@ export class PanelLayoutManager implements AppModule {
     this.createPanel('etf-flows', () => new ETFFlowsPanel());
     this.createPanel('stablecoins', () => new StablecoinPanel());
 
-    const ncPanel = this.createPanel('newscrawl', () => new NewsCrawlPanel());
+    const ncPanel = this.createPanel('newscrawl', () => {
+      const agentCfg = this.agentConfig;
+      return new NewsCrawlPanel(agentCfg?.defaultNewsCrawlFeedId ? {
+        defaultFeedId: agentCfg.defaultNewsCrawlFeedId,
+        defaultFeedTitle: agentCfg.defaultNewsCrawlFeedTitle,
+      } : undefined);
+    });
     if (ncPanel) void ncPanel.init();
 
     if (this.ctx.isDesktopApp) {

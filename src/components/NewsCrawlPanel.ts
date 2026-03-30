@@ -55,15 +55,25 @@ export class NewsCrawlPanel extends Panel {
   private feedsCacheTs = 0;
   private loading = false;
   private view: View = 'feeds';
+  private defaultFeedId: string | null = null;
+  private defaultFeedTitle = '';
 
-  constructor() {
+  constructor(options?: { defaultFeedId?: string; defaultFeedTitle?: string }) {
     super({ id: 'newscrawl', title: 'NewsCrawl AI', showCount: true, trackActivity: true });
+    if (options?.defaultFeedId) {
+      this.defaultFeedId = options.defaultFeedId;
+      this.defaultFeedTitle = options.defaultFeedTitle ?? '';
+    }
     this.renderView();
   }
 
   /* ------ Public API ------ */
 
   public async init(): Promise<void> {
+    if (this.defaultFeedId) {
+      this.selectFeed(this.defaultFeedId, this.defaultFeedTitle);
+      return;
+    }
     await this.loadFeeds();
   }
 
