@@ -18,6 +18,10 @@ export interface AgentConfig {
   defaultNewsCrawlFeedTitle?: string;
   hideVariantSwitcher?: boolean;
   mapTitle?: string;
+  /** If set, only these layers appear in the layer panel */
+  allowedLayers?: string[];
+  /** Layers enabled by default for this agent */
+  defaultEnabledLayers?: string[];
 }
 
 export const AGENTS: (AgentDef & { config?: AgentConfig })[] = [
@@ -37,6 +41,8 @@ export const AGENTS: (AgentDef & { config?: AgentConfig })[] = [
       defaultNewsCrawlFeedTitle: 'Sopra test',
       hideVariantSwitcher: true,
       mapTitle: 'MARINE',
+      allowedLayers: ['conflicts', 'newscrawlLocations'],
+      defaultEnabledLayers: ['conflicts', 'newscrawlLocations'],
     },
   },
 ];

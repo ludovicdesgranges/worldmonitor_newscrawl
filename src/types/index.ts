@@ -651,6 +651,8 @@ export interface MapLayers {
   commodityPorts: boolean;
   webcams: boolean;
   weatherRadar: boolean;
+  // NewsCrawl article locations
+  newscrawlLocations?: boolean;
 }
 
 export interface AIDataCenter {

@@ -93,6 +93,7 @@ import type { GulfInvestment } from '@/types';
 import { resolveTradeRouteSegments, TRADE_ROUTES as TRADE_ROUTES_LIST, type TradeRouteSegment } from '@/config/trade-routes';
 import { getLayersForVariant, resolveLayerLabel, bindLayerSearch, type MapVariant } from '@/config/map-layer-definitions';
 import { getSecretState } from '@/services/runtime-config';
+import { getAgentConfig as _getAgentConfig } from '@/agent-selector';
 import { MapPopup, type PopupType } from './MapPopup';
 import {
   updateHotspotEscalation,
@@ -487,6 +488,18 @@ export class DeckGLMap {
       pan: { ...initialState.pan },
       layers: { ...initialState.layers },
     };
+    // Apply agent-specific layer overrides
+    const _agentCfg = _getAgentConfig();
+    if (_agentCfg?.defaultEnabledLayers) {
+      // Disable all layers first, then enable only agent-specified ones
+      const layersAny = this.state.layers as unknown as Record<string, boolean>;
+      for (const k of Object.keys(this.state.layers)) {
+        layersAny[k] = false;
+      }
+      for (const k of _agentCfg.defaultEnabledLayers) {
+        layersAny[k] = true;
+      }
+    }
     this.hotspots = [...INTEL_HOTSPOTS];
 
     this.debouncedRebuildLayers = debounce(() => {
@@ -1693,8 +1706,8 @@ export class DeckGLMap {
       }));
     }
 
-    // News geo-locations (always shown if data exists)
-    if (this.newsLocations.length > 0) {
+    // News geo-locations (shown when newscrawlLocations layer is enabled, or always if toggle doesn't exist yet)
+    if (this.newsLocations.length > 0 && (this.state.layers.newscrawlLocations !== false)) {
       layers.push(...this.createNewsLocationsLayer());
     }
 
@@ -4172,7 +4185,12 @@ export class DeckGLMap {
     const toggles = document.createElement('div');
     toggles.className = 'layer-toggles deckgl-layer-toggles';
 
-    const layerDefs = getLayersForVariant((SITE_VARIANT || 'full') as MapVariant, 'flat');
+    let layerDefs = getLayersForVariant((SITE_VARIANT || 'full') as MapVariant, 'flat');
+    const agentCfg = _getAgentConfig();
+    if (agentCfg?.allowedLayers) {
+      const allowed = new Set(agentCfg.allowedLayers);
+      layerDefs = layerDefs.filter(d => allowed.has(d.key));
+    }
     const _wmKey = getSecretState('WORLDMONITOR_API_KEY').present;
     const layerConfig = layerDefs.map(def => ({
       key: def.key,

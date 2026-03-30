@@ -116,6 +116,7 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   ciiChoropleth: false,
   webcams: false,
   weatherRadar: false,
+  newscrawlLocations: false,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -179,6 +180,7 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   ciiChoropleth: false,
   webcams: false,
   weatherRadar: false,
+  newscrawlLocations: false,
 };
 
 export const VARIANT_CONFIG: VariantConfig = {
