@@ -298,7 +298,7 @@ export class NewsCrawlPanel extends Panel {
   /* ------ Map integration ------ */
 
   private pushLocationsToMap(): void {
-    const markers: Array<{ lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date; score?: number; source?: string; url?: string; summary?: string }> = [];
+    const markers: Array<Record<string, unknown>> = [];
     for (const article of this.articles) {
       if (!article.locations || article.locations.length === 0) continue;
       const ts = article.publishedAt ? new Date(article.publishedAt) : undefined;
@@ -314,6 +314,12 @@ export class NewsCrawlPanel extends Panel {
           source: article.source,
           url: article.url,
           summary: article.summary,
+          language: article.language,
+          scoreReview: article.scoreReview,
+          labels: article.labels,
+          publishedAt: article.publishedAt,
+          locationName: loc.location,
+          clusterSize: article.clusterSize,
         });
       }
     }
@@ -327,7 +333,14 @@ export class NewsCrawlPanel extends Panel {
   }
 
   private relativeTime(iso: string): string {
-    const diff = Date.now() - new Date(iso).getTime();
+    // NewsCrawl dates may be "DD-MM-YYYYTHH:mm:ss+0000 UTC" — normalize to ISO
+    let dateStr = iso;
+    const ddMm = iso.match(/^(\d{2})-(\d{2})-(\d{4}T)/);
+    if (ddMm) dateStr = `${ddMm[3]!.slice(0, -1)}-${ddMm[2]!}-${ddMm[1]!}T${iso.slice(11)}`;
+    dateStr = dateStr.replace(/\s*UTC$/, '');
+    const ts = new Date(dateStr).getTime();
+    if (Number.isNaN(ts)) return '';
+    const diff = Date.now() - ts;
     if (diff < 0) return '';
     const mins = Math.floor(diff / 60_000);
     if (mins < 60) return `${mins}m`;

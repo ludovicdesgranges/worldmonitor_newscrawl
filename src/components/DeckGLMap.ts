@@ -366,7 +366,7 @@ export class DeckGLMap {
   private aircraftPositions: PositionSample[] = [];
   private aircraftFetchTimer: ReturnType<typeof setInterval> | null = null;
   private news: NewsItem[] = [];
-  private newsLocations: Array<{ lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date; score?: number; source?: string; url?: string; summary?: string }> = [];
+  private newsLocations: Array<{ lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date; score?: number; source?: string; url?: string; summary?: string; language?: string; scoreReview?: string; labels?: string[]; publishedAt?: string; locationName?: string; clusterSize?: number }> = [];
   private newsLocationFirstSeen = new Map<string, number>();
   private ucdpEvents: UcdpGeoEvent[] = [];
   private displacementFlows: DisplacementFlow[] = [];
@@ -3987,8 +3987,7 @@ export class DeckGLMap {
 
     // NewsCrawl article click → open side panel
     if (layerId === 'news-locations-layer') {
-      const obj = info.object as { title?: string; score?: number; source?: string; url?: string; summary?: string; threatLevel?: string };
-      if (obj) this.showNewsCrawlSidePanel(obj);
+      if (info.object) this.showNewsCrawlSidePanel(info.object as Record<string, unknown>);
       return;
     }
 
@@ -5103,7 +5102,7 @@ export class DeckGLMap {
     this.render();
   }
 
-  public setNewsLocations(data: Array<{ lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date; score?: number; source?: string; url?: string; summary?: string }>): void {
+  public setNewsLocations(data: Array<{ lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date; score?: number; source?: string; url?: string; summary?: string; language?: string; scoreReview?: string; labels?: string[]; publishedAt?: string; locationName?: string; clusterSize?: number }>): void {
     const now = Date.now();
     for (const d of data) {
       if (!this.newsLocationFirstSeen.has(d.title)) {
@@ -5900,72 +5899,79 @@ export class DeckGLMap {
 
   /* ------ NewsCrawl side panel ------ */
 
-  private showNewsCrawlSidePanel(article: { title?: string; score?: number; source?: string; url?: string; summary?: string; threatLevel?: string }): void {
-    // Remove existing side panel
+  private showNewsCrawlSidePanel(article: Record<string, unknown>): void {
     document.querySelector('.nc-side-panel')?.remove();
 
-    const scoreColor = (article.score ?? 0) >= 80 ? '#44ff88' : (article.score ?? 0) >= 50 ? '#ffaa44' : '#ff4466';
     const text = escapeHtml;
+    const score = article.score as number | undefined;
+    const scoreColor = (score ?? 0) >= 80 ? '#44ff88' : (score ?? 0) >= 50 ? '#ffaa44' : '#ff4466';
+    const labels = (article.labels as string[] | undefined) ?? [];
+    const scoreReview = article.scoreReview as string | undefined;
+    const summary = article.summary as string | undefined;
+    const language = article.language as string | undefined;
+    const locationName = article.locationName as string | undefined;
+    const publishedAt = article.publishedAt as string | undefined;
+    const clusterSize = article.clusterSize as number | undefined;
+    const source = article.source as string | undefined;
+    const url = article.url as string | undefined;
+    const title = article.title as string | undefined;
+
+    const labelsHtml = labels.length > 0
+      ? `<div class="ncs-tags">${labels.map(l => `<span class="ncs-tag">${text(l)}</span>`).join('')}</div>` : '';
+    const metaItems: string[] = [];
+    if (language) metaItems.push(`<span class="ncs-meta-item"><span class="ncs-meta-icon">🌐</span>${text(language)}</span>`);
+    if (locationName) metaItems.push(`<span class="ncs-meta-item"><span class="ncs-meta-icon">📍</span>${text(locationName)}</span>`);
+    if (publishedAt) metaItems.push(`<span class="ncs-meta-item"><span class="ncs-meta-icon">📅</span>${text(publishedAt.slice(0, 16).replace('T', ' '))}</span>`);
+    if (clusterSize && clusterSize > 1) metaItems.push(`<span class="ncs-meta-item"><span class="ncs-meta-icon">📄</span>${clusterSize} related articles</span>`);
 
     const panel = document.createElement('div');
     panel.className = 'nc-side-panel';
     panel.innerHTML = `
-      <div class="nc-side-header">
-        <button class="nc-side-close">&times;</button>
+      <div class="ncs-header">
+        <span class="ncs-header-label">Article Details</span>
+        <button class="ncs-close">&times;</button>
       </div>
-      <div class="nc-side-body">
-        ${article.score != null ? `<div class="nc-side-score" style="background:${scoreColor}">${article.score}%</div>` : ''}
-        <h2 class="nc-side-title">${text(article.title || '')}</h2>
-        ${article.source ? `<div class="nc-side-source">${text(article.source)}</div>` : ''}
-        ${article.summary ? `<div class="nc-side-summary">${text(article.summary)}</div>` : ''}
-        ${article.url ? `<a class="nc-side-link" href="${text(article.url)}" target="_blank" rel="noopener">Open article &rarr;</a>` : ''}
-      </div>
-    `;
+      <div class="ncs-body">
+        <div class="ncs-top-row">
+          ${score != null ? `<div class="ncs-score" style="background:${scoreColor}">${score}%</div>` : ''}
+          ${source ? `<div class="ncs-source">${text(source)}</div>` : ''}
+        </div>
+        <h2 class="ncs-title">${text(title || '')}</h2>
+        ${labelsHtml}
+        ${metaItems.length > 0 ? `<div class="ncs-meta">${metaItems.join('')}</div>` : ''}
 
-    // Styles
-    const style = document.createElement('style');
-    style.textContent = `
-      .nc-side-panel {
-        position: fixed; top: 0; right: 0; width: 400px; max-width: 90vw; height: 100vh;
-        background: #111; border-left: 1px solid #333; z-index: 9999;
-        display: flex; flex-direction: column; animation: nc-slide-in .2s ease;
-        font-family: 'JetBrains Mono', 'SF Mono', monospace; color: #e0e0e0;
-      }
-      @keyframes nc-slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
-      .nc-side-header {
-        display: flex; justify-content: flex-end; padding: 12px 16px;
-        border-bottom: 1px solid #222;
-      }
-      .nc-side-close {
-        background: none; border: none; color: #888; font-size: 24px;
-        cursor: pointer; padding: 0 4px; line-height: 1;
-      }
-      .nc-side-close:hover { color: #fff; }
-      .nc-side-body { padding: 20px; overflow-y: auto; flex: 1; }
-      .nc-side-score {
-        display: inline-block; padding: 4px 12px; border-radius: 20px;
-        font-size: 14px; font-weight: 700; color: #000; margin-bottom: 16px;
-      }
-      .nc-side-title { font-size: 18px; font-weight: 600; line-height: 1.4; margin: 0 0 12px; color: #fff; }
-      .nc-side-source { font-size: 13px; color: #888; margin-bottom: 16px; }
-      .nc-side-summary {
-        font-size: 13px; line-height: 1.6; color: #aaa; margin-bottom: 20px;
-        border-top: 1px solid #222; padding-top: 16px;
-      }
-      .nc-side-link {
-        display: inline-block; padding: 8px 16px; background: #1a3a1a;
-        color: #4ade80; border-radius: 6px; text-decoration: none;
-        font-size: 13px; font-weight: 500;
-      }
-      .nc-side-link:hover { background: #224a22; }
+        ${summary ? `<div class="ncs-section"><div class="ncs-section-label">Summary</div><div class="ncs-section-content">${text(summary)}</div></div>` : ''}
+        ${scoreReview ? `<div class="ncs-section"><div class="ncs-section-label">Score Analysis</div><div class="ncs-section-content">${text(scoreReview)}</div></div>` : ''}
+
+        ${url ? `<a class="ncs-link" href="${text(url)}" target="_blank" rel="noopener">Open original article &rarr;</a>` : ''}
+      </div>
+      <style>
+        .nc-side-panel{position:fixed;top:0;right:0;width:420px;max-width:92vw;height:100vh;background:#0d1117;border-left:1px solid #21262d;z-index:9999;display:flex;flex-direction:column;animation:ncs-in .25s ease;font-family:'JetBrains Mono','SF Mono',monospace;color:#c9d1d9}
+        @keyframes ncs-in{from{transform:translateX(100%)}to{transform:translateX(0)}}
+        .ncs-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid #21262d;background:#161b22}
+        .ncs-header-label{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#8b949e;font-weight:600}
+        .ncs-close{background:none;border:none;color:#8b949e;font-size:22px;cursor:pointer;padding:0 2px;line-height:1}
+        .ncs-close:hover{color:#f0f6fc}
+        .ncs-body{padding:20px;overflow-y:auto;flex:1}
+        .ncs-top-row{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+        .ncs-score{display:inline-block;padding:3px 10px;border-radius:16px;font-size:13px;font-weight:700;color:#000}
+        .ncs-source{font-size:12px;color:#8b949e;font-weight:500}
+        .ncs-title{font-size:16px;font-weight:600;line-height:1.45;margin:0 0 12px;color:#f0f6fc}
+        .ncs-tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+        .ncs-tag{font-size:11px;padding:2px 8px;border-radius:12px;background:#1f6feb22;color:#58a6ff;border:1px solid #1f6feb44}
+        .ncs-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid #21262d}
+        .ncs-meta-item{font-size:11px;color:#8b949e;display:flex;align-items:center;gap:4px}
+        .ncs-meta-icon{font-size:13px}
+        .ncs-section{margin-bottom:18px}
+        .ncs-section-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#8b949e;font-weight:600;margin-bottom:8px}
+        .ncs-section-content{font-size:13px;line-height:1.65;color:#c9d1d9}
+        .ncs-link{display:inline-block;padding:10px 18px;background:#238636;color:#fff;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;margin-top:8px;transition:background .15s}
+        .ncs-link:hover{background:#2ea043}
+      </style>
     `;
-    panel.appendChild(style);
 
     document.body.appendChild(panel);
-
-    // Close handlers
-    panel.querySelector('.nc-side-close')!.addEventListener('click', () => panel.remove());
-    panel.addEventListener('click', (e) => { if (e.target === panel) panel.remove(); });
+    panel.querySelector('.ncs-close')!.addEventListener('click', () => panel.remove());
     document.addEventListener('keydown', function handler(e) {
       if (e.key === 'Escape') { panel.remove(); document.removeEventListener('keydown', handler); }
     });

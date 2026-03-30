@@ -458,7 +458,7 @@ if ('__TAURI_INTERNALS__' in window || '__TAURI__' in window) {
   });
 }
 
-if (!('__TAURI_INTERNALS__' in window) && !('__TAURI__' in window) && 'serviceWorker' in navigator) {
+if (!('__TAURI_INTERNALS__' in window) && !('__TAURI__' in window) && 'serviceWorker' in navigator && location.hostname.endsWith('worldmonitor.app')) {
   installSwUpdateHandler({ version: __APP_VERSION__ });
 
   const SW_UPDATE_SUCCESS_INTERVAL_MS = 60 * 60 * 1000;
