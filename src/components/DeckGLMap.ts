@@ -366,7 +366,7 @@ export class DeckGLMap {
   private aircraftPositions: PositionSample[] = [];
   private aircraftFetchTimer: ReturnType<typeof setInterval> | null = null;
   private news: NewsItem[] = [];
-  private newsLocations: Array<{ lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date }> = [];
+  private newsLocations: Array<{ lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date; score?: number; source?: string; url?: string; summary?: string }> = [];
   private newsLocationFirstSeen = new Map<string, number>();
   private ucdpEvents: UcdpGeoEvent[] = [];
   private displacementFlows: DisplacementFlow[] = [];
@@ -3680,8 +3680,11 @@ export class DeckGLMap {
         return { html: `<div class="deckgl-tooltip"><strong>${t('popups.cyberThreat.title')}</strong><br/>${text(obj.severity || t('components.deckgl.tooltip.medium'))} · ${text(obj.country || t('popups.unknown'))}</div>` };
       case 'iran-events-layer':
         return { html: `<div class="deckgl-tooltip"><strong>${t('components.deckgl.layers.iranAttacks')}: ${text(obj.category || '')}</strong><br/>${text((obj.title || '').slice(0, 80))}</div>` };
-      case 'news-locations-layer':
-        return { html: `<div class="deckgl-tooltip"><strong>📰 ${t('components.deckgl.tooltip.news')}</strong><br/>${text(obj.title?.slice(0, 80) || '')}</div>` };
+      case 'news-locations-layer': {
+        const nScore = obj.score != null ? `<span style="color:${obj.score >= 80 ? '#44ff88' : obj.score >= 50 ? '#ffaa44' : '#ff4466'};font-weight:bold">${obj.score}%</span> · ` : '';
+        const nSrc = obj.source ? `<span style="opacity:.7">${text(obj.source)}</span>` : '';
+        return { html: `<div class="deckgl-tooltip"><strong>📰 ${text(obj.title || '')}</strong><br/>${nScore}${nSrc}</div>` };
+      }
       case 'positive-events-layer': {
         const catLabel = obj.category ? obj.category.replace(/-/g, ' & ') : 'Positive Event';
         const countInfo = obj.count > 1 ? `<br/><span style="opacity:.7">${obj.count} sources reporting</span>` : '';
@@ -3981,6 +3984,13 @@ export class DeckGLMap {
       'cable-advisories-layer': 'cable-advisory',
       'repair-ships-layer': 'repair-ship',
     };
+
+    // NewsCrawl article click → open side panel
+    if (layerId === 'news-locations-layer') {
+      const obj = info.object as { title?: string; score?: number; source?: string; url?: string; summary?: string; threatLevel?: string };
+      if (obj) this.showNewsCrawlSidePanel(obj);
+      return;
+    }
 
     const popupType = layerToPopupType[layerId];
     if (!popupType) return;
@@ -5093,7 +5103,7 @@ export class DeckGLMap {
     this.render();
   }
 
-  public setNewsLocations(data: Array<{ lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date }>): void {
+  public setNewsLocations(data: Array<{ lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date; score?: number; source?: string; url?: string; summary?: string }>): void {
     const now = Date.now();
     for (const d of data) {
       if (!this.newsLocationFirstSeen.has(d.title)) {
@@ -5886,5 +5896,78 @@ export class DeckGLMap {
     this.maplibreMap?.remove();
     this.maplibreMap = null;
     this.container.innerHTML = '';
+  }
+
+  /* ------ NewsCrawl side panel ------ */
+
+  private showNewsCrawlSidePanel(article: { title?: string; score?: number; source?: string; url?: string; summary?: string; threatLevel?: string }): void {
+    // Remove existing side panel
+    document.querySelector('.nc-side-panel')?.remove();
+
+    const scoreColor = (article.score ?? 0) >= 80 ? '#44ff88' : (article.score ?? 0) >= 50 ? '#ffaa44' : '#ff4466';
+    const text = escapeHtml;
+
+    const panel = document.createElement('div');
+    panel.className = 'nc-side-panel';
+    panel.innerHTML = `
+      <div class="nc-side-header">
+        <button class="nc-side-close">&times;</button>
+      </div>
+      <div class="nc-side-body">
+        ${article.score != null ? `<div class="nc-side-score" style="background:${scoreColor}">${article.score}%</div>` : ''}
+        <h2 class="nc-side-title">${text(article.title || '')}</h2>
+        ${article.source ? `<div class="nc-side-source">${text(article.source)}</div>` : ''}
+        ${article.summary ? `<div class="nc-side-summary">${text(article.summary)}</div>` : ''}
+        ${article.url ? `<a class="nc-side-link" href="${text(article.url)}" target="_blank" rel="noopener">Open article &rarr;</a>` : ''}
+      </div>
+    `;
+
+    // Styles
+    const style = document.createElement('style');
+    style.textContent = `
+      .nc-side-panel {
+        position: fixed; top: 0; right: 0; width: 400px; max-width: 90vw; height: 100vh;
+        background: #111; border-left: 1px solid #333; z-index: 9999;
+        display: flex; flex-direction: column; animation: nc-slide-in .2s ease;
+        font-family: 'JetBrains Mono', 'SF Mono', monospace; color: #e0e0e0;
+      }
+      @keyframes nc-slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+      .nc-side-header {
+        display: flex; justify-content: flex-end; padding: 12px 16px;
+        border-bottom: 1px solid #222;
+      }
+      .nc-side-close {
+        background: none; border: none; color: #888; font-size: 24px;
+        cursor: pointer; padding: 0 4px; line-height: 1;
+      }
+      .nc-side-close:hover { color: #fff; }
+      .nc-side-body { padding: 20px; overflow-y: auto; flex: 1; }
+      .nc-side-score {
+        display: inline-block; padding: 4px 12px; border-radius: 20px;
+        font-size: 14px; font-weight: 700; color: #000; margin-bottom: 16px;
+      }
+      .nc-side-title { font-size: 18px; font-weight: 600; line-height: 1.4; margin: 0 0 12px; color: #fff; }
+      .nc-side-source { font-size: 13px; color: #888; margin-bottom: 16px; }
+      .nc-side-summary {
+        font-size: 13px; line-height: 1.6; color: #aaa; margin-bottom: 20px;
+        border-top: 1px solid #222; padding-top: 16px;
+      }
+      .nc-side-link {
+        display: inline-block; padding: 8px 16px; background: #1a3a1a;
+        color: #4ade80; border-radius: 6px; text-decoration: none;
+        font-size: 13px; font-weight: 500;
+      }
+      .nc-side-link:hover { background: #224a22; }
+    `;
+    panel.appendChild(style);
+
+    document.body.appendChild(panel);
+
+    // Close handlers
+    panel.querySelector('.nc-side-close')!.addEventListener('click', () => panel.remove());
+    panel.addEventListener('click', (e) => { if (e.target === panel) panel.remove(); });
+    document.addEventListener('keydown', function handler(e) {
+      if (e.key === 'Escape') { panel.remove(); document.removeEventListener('keydown', handler); }
+    });
   }
 }

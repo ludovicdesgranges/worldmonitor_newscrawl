@@ -298,7 +298,7 @@ export class NewsCrawlPanel extends Panel {
   /* ------ Map integration ------ */
 
   private pushLocationsToMap(): void {
-    const markers: Array<{ lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date }> = [];
+    const markers: Array<{ lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date; score?: number; source?: string; url?: string; summary?: string }> = [];
     for (const article of this.articles) {
       if (!article.locations || article.locations.length === 0) continue;
       const ts = article.publishedAt ? new Date(article.publishedAt) : undefined;
@@ -307,9 +307,13 @@ export class NewsCrawlPanel extends Panel {
         markers.push({
           lat: loc.latitude,
           lon: loc.longitude,
-          title: `${article.translatedTitle || article.title} — ${loc.location}`,
+          title: article.translatedTitle || article.title,
           threatLevel: threat,
           timestamp: ts,
+          score: article.score,
+          source: article.source,
+          url: article.url,
+          summary: article.summary,
         });
       }
     }
