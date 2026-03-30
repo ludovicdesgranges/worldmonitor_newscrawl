@@ -23,6 +23,7 @@ import { t } from '@/services/i18n';
 import { SITE_VARIANT } from '@/config/variant';
 import { getGlobeRenderScale, resolveGlobePixelRatio, resolvePerformanceProfile, subscribeGlobeRenderScaleChange, getGlobeTexture, GLOBE_TEXTURE_URLS, subscribeGlobeTextureChange, getGlobeVisualPreset, subscribeGlobeVisualPresetChange, type GlobeRenderScale, type GlobePerformanceProfile, type GlobeVisualPreset } from '@/services/globe-render-settings';
 import { getLayersForVariant, resolveLayerLabel, bindLayerSearch, type MapVariant } from '@/config/map-layer-definitions';
+import { getAgentConfig } from '@/agent-selector';
 import { getSecretState } from '@/services/runtime-config';
 import { resolveTradeRouteSegments, type TradeRouteSegment } from '@/config/trade-routes';
 import { GAMMA_IRRADIATORS } from '@/config/irradiators';
@@ -318,6 +319,16 @@ interface NewsLocationMarker extends BaseMarker {
   id: string;
   title: string;
   threatLevel: string;
+  score?: number;
+  source?: string;
+  url?: string;
+  summary?: string;
+  language?: string;
+  scoreReview?: string;
+  labels?: string[];
+  publishedAt?: string;
+  locationName?: string;
+  clusterSize?: number;
 }
 interface FlashMarker extends BaseMarker {
   _kind: 'flash';
@@ -1306,7 +1317,71 @@ export class GlobeMap {
       });
       return;
     }
+    if (d._kind === 'newsLocation') {
+      this.hideTooltip();
+      this.showNewsCrawlSidePanel(d);
+      return;
+    }
     this.showMarkerTooltip(d, anchor);
+  }
+
+  private showNewsCrawlSidePanel(d: NewsLocationMarker): void {
+    document.querySelector('.nc-side-panel')?.remove();
+    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const scoreColor = (d.score ?? 0) >= 80 ? '#44ff88' : (d.score ?? 0) >= 50 ? '#ffaa44' : '#ff4466';
+    const labels = d.labels ?? [];
+    const labelsHtml = labels.length > 0
+      ? `<div class="ncs-tags">${labels.map(l => `<span class="ncs-tag">${esc(l)}</span>`).join('')}</div>` : '';
+    const metaItems: string[] = [];
+    if (d.language) metaItems.push(`<span class="ncs-meta-item"><span class="ncs-meta-icon">🌐</span>${esc(d.language)}</span>`);
+    if (d.locationName) metaItems.push(`<span class="ncs-meta-item"><span class="ncs-meta-icon">📍</span>${esc(d.locationName)}</span>`);
+    if (d.publishedAt) metaItems.push(`<span class="ncs-meta-item"><span class="ncs-meta-icon">📅</span>${esc(d.publishedAt.slice(0, 16).replace('T', ' '))}</span>`);
+    if (d.clusterSize && d.clusterSize > 1) metaItems.push(`<span class="ncs-meta-item"><span class="ncs-meta-icon">📄</span>${d.clusterSize} related articles</span>`);
+
+    const panel = document.createElement('div');
+    panel.className = 'nc-side-panel';
+    panel.innerHTML = `
+      <div class="ncs-header"><span class="ncs-header-label">Article Details</span><button class="ncs-close">&times;</button></div>
+      <div class="ncs-body">
+        <div class="ncs-top-row">
+          ${d.score != null ? `<div class="ncs-score" style="background:${scoreColor}">${d.score}%</div>` : ''}
+          ${d.source ? `<div class="ncs-source">${esc(d.source)}</div>` : ''}
+        </div>
+        <h2 class="ncs-title">${esc(d.title)}</h2>
+        ${labelsHtml}
+        ${metaItems.length > 0 ? `<div class="ncs-meta">${metaItems.join('')}</div>` : ''}
+        ${d.summary ? `<div class="ncs-section"><div class="ncs-section-label">Summary</div><div class="ncs-section-content">${esc(d.summary)}</div></div>` : ''}
+        ${d.scoreReview ? `<div class="ncs-section"><div class="ncs-section-label">Score Analysis</div><div class="ncs-section-content">${esc(d.scoreReview)}</div></div>` : ''}
+        ${d.url ? `<a class="ncs-link" href="${esc(d.url)}" target="_blank" rel="noopener">Open original article &rarr;</a>` : ''}
+      </div>
+      <style>
+        .nc-side-panel{position:fixed;top:0;right:0;width:420px;max-width:92vw;height:100vh;background:#0d1117;border-left:1px solid #21262d;z-index:9999;display:flex;flex-direction:column;animation:ncs-in .25s ease;font-family:'JetBrains Mono','SF Mono',monospace;color:#c9d1d9}
+        @keyframes ncs-in{from{transform:translateX(100%)}to{transform:translateX(0)}}
+        .ncs-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid #21262d;background:#161b22}
+        .ncs-header-label{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#8b949e;font-weight:600}
+        .ncs-close{background:none;border:none;color:#8b949e;font-size:22px;cursor:pointer;padding:0 2px;line-height:1}
+        .ncs-close:hover{color:#f0f6fc}
+        .ncs-body{padding:20px;overflow-y:auto;flex:1}
+        .ncs-top-row{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+        .ncs-score{display:inline-block;padding:3px 10px;border-radius:16px;font-size:13px;font-weight:700;color:#000}
+        .ncs-source{font-size:12px;color:#8b949e;font-weight:500}
+        .ncs-title{font-size:16px;font-weight:600;line-height:1.45;margin:0 0 12px;color:#f0f6fc}
+        .ncs-tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+        .ncs-tag{font-size:11px;padding:2px 8px;border-radius:12px;background:#1f6feb22;color:#58a6ff;border:1px solid #1f6feb44}
+        .ncs-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid #21262d}
+        .ncs-meta-item{font-size:11px;color:#8b949e;display:flex;align-items:center;gap:4px}
+        .ncs-meta-icon{font-size:13px}
+        .ncs-section{margin-bottom:18px}
+        .ncs-section-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#8b949e;font-weight:600;margin-bottom:8px}
+        .ncs-section-content{font-size:13px;line-height:1.65;color:#c9d1d9}
+        .ncs-link{display:inline-block;padding:10px 18px;background:#238636;color:#fff;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;margin-top:8px;transition:background .15s}
+        .ncs-link:hover{background:#2ea043}
+      </style>`;
+    document.body.appendChild(panel);
+    panel.querySelector('.ncs-close')!.addEventListener('click', () => panel.remove());
+    document.addEventListener('keydown', function handler(e) {
+      if (e.key === 'Escape') { panel.remove(); document.removeEventListener('keydown', handler); }
+    });
   }
 
   private showMarkerTooltip(d: GlobeMarker, anchor: HTMLElement): void {
@@ -1520,8 +1595,10 @@ export class GlobeMap {
              `<br><span style="opacity:.5;">${esc(d.severity)} · ${esc(d.description.slice(0, 60))}</span>`;
     } else if (d._kind === 'newsLocation') {
       const tc = d.threatLevel === 'critical' ? '#ff2020' : d.threatLevel === 'high' ? '#ff6600' : (d.threatLevel === 'elevated' || d.threatLevel === 'medium') ? '#ffaa00' : '#44aaff';
-      html = `<span style="color:${tc};font-weight:bold;">📰 ${esc(d.title.slice(0, 60))}</span>` +
-             `<br><span style="opacity:.5;">${esc(d.threatLevel)}</span>`;
+      const scoreHtml = d.score != null ? `<span style="color:${d.score >= 80 ? '#44ff88' : d.score >= 50 ? '#ffaa44' : '#ff4466'};font-weight:bold;">${d.score}%</span> · ` : '';
+      const srcHtml = d.source ? `<span style="opacity:.6;">${esc(d.source)}</span>` : '';
+      html = `<span style="color:${tc};font-weight:bold;">📰 ${esc(d.title)}</span>` +
+             `<br>${scoreHtml}${srcHtml}`;
     } else if (d._kind === 'satellite') {
       const sc = SAT_COUNTRY_COLORS[d.country] || '#ccccff';
       const altBand = d.alt < 2000 ? 'LEO' : d.alt < 35786 ? 'MEO' : 'GEO';
@@ -1796,7 +1873,12 @@ export class GlobeMap {
   }
 
   private createLayerToggles(): void {
-    const layerDefs = getLayersForVariant((SITE_VARIANT || 'full') as MapVariant, 'globe');
+    let layerDefs = getLayersForVariant((SITE_VARIANT || 'full') as MapVariant, 'globe');
+    const _agentCfg = getAgentConfig();
+    if (_agentCfg?.allowedLayers) {
+      const allowed = new Set(_agentCfg.allowedLayers);
+      layerDefs = layerDefs.filter(d => allowed.has(d.key));
+    }
     const _wmKey = getSecretState('WORLDMONITOR_API_KEY').present;
     const layers = layerDefs.map(def => ({
       key: def.key,
@@ -1981,7 +2063,7 @@ export class GlobeMap {
       markers.push(...this.repairShipMarkers);
     }
     if (this.layers.webcams) markers.push(...this.webcamMarkers);
-    markers.push(...this.newsLocationMarkers);
+    if (this.layers.newscrawlLocations !== false) markers.push(...this.newsLocationMarkers);
     markers.push(...this.flashMarkers);
 
     try {
@@ -2974,7 +3056,7 @@ export class GlobeMap {
       }));
     this.flushMarkers();
   }
-  public setNewsLocations(data: Array<{ lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date }>): void {
+  public setNewsLocations(data: Array<{ lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date; score?: number; source?: string; url?: string; summary?: string; language?: string; scoreReview?: string; labels?: string[]; publishedAt?: string; locationName?: string; clusterSize?: number }>): void {
     this.newsLocationMarkers = (data ?? [])
       .filter(d => d.lat != null && d.lon != null)
       .map((d, i) => ({
@@ -2984,6 +3066,16 @@ export class GlobeMap {
         id: `news-${i}-${d.title.slice(0, 20)}`,
         title: d.title,
         threatLevel: d.threatLevel ?? 'info',
+        score: d.score,
+        source: d.source,
+        url: d.url,
+        summary: d.summary,
+        language: d.language,
+        scoreReview: d.scoreReview,
+        labels: d.labels,
+        publishedAt: d.publishedAt,
+        locationName: d.locationName,
+        clusterSize: d.clusterSize,
       }));
     this.flushMarkers();
   }
